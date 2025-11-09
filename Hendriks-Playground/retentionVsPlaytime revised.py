@@ -2,16 +2,19 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+# =========================
 # Daten einlesen
+# =========================
 df = pd.read_csv(
     "steam-200k.csv", header=None, names=["UserID", "Game", "Action", "Value", "Other"]
 )
 
-# Vorbereitung der Daten für Engagement vs. Retention
+# =========================
+# Daten vorbereiten
+# =========================
 purchases = df[df["Action"] == "purchase"][["UserID", "Game"]]
 play_data = df[df["Action"] == "play"][["UserID", "Game", "Value"]]
 
-# Für jedes Spiel berechnen
 games_analysis = []
 for game in purchases["Game"].unique():
     buyers = purchases[purchases["Game"] == game]["UserID"].nunique()
@@ -25,44 +28,58 @@ for game in purchases["Game"].unique():
         {
             "game": game,
             "retention_rate": retention_rate,
-            "avg_playtime": avg_playtime,
+            "avg_playtime": avg_playtime,  # Minuten
             "buyers": buyers,
             "players": players,
         }
     )
 
 games_df = pd.DataFrame(games_analysis)
-filtered_games = games_df[games_df["buyers"] >= 100]
+filtered_games = games_df[games_df["buyers"] >= 100].copy()
+
+# =========================
+# Spiele mit >150h Ø-Spielzeit (9000 Min.) anzeigen
+# =========================
+high_playtime = filtered_games[filtered_games["avg_playtime"] > 9000].sort_values(
+    "avg_playtime", ascending=False
+)
+
+print("\n=== Spiele mit >150 Stunden Ø-Spielzeit (nur Spiele mit ≥100 Käufern) ===")
+if high_playtime.empty:
+    print("Keine Spiele über 150h gefunden.")
+else:
+    for _, row in high_playtime.iterrows():
+        print(f"{row['game']} — {row['avg_playtime'] / 60:.1f}h")
 
 
+# =========================
 # Kategorien für Retention definieren
+# =========================
 def categorize_retention(rate):
     if rate < 40:
         return "Niedrig (<40%)"
-    elif rate <= 80:
-        return "Mittel (40-80%)"
+    elif rate <= 90:
+        return "Mittel (40-90%)"
     else:
-        return "Hoch (>80%)"
+        return "Hoch (>90%)"
 
 
 filtered_games["retention_category"] = filtered_games["retention_rate"].apply(
     categorize_retention
 )
-colors = {"Niedrig (<40%)": "red", "Mittel (40-80%)": "orange", "Hoch (>80%)": "green"}
+colors = {"Niedrig (<40%)": "red", "Mittel (40-90%)": "orange", "Hoch (>90%)": "green"}
 
+# =========================
 # Diagramm erstellen
+# =========================
 plt.figure(figsize=(10, 6))
 
-# 1. Quadranten als farbige Hintergründe hinzufügen
 median_playtime = filtered_games["avg_playtime"].median()
 median_retention = filtered_games["retention_rate"].median()
 
-# Quadranten zeichnen
 plt.axhline(y=median_retention, color="gray", linestyle="--", alpha=0.7)
 plt.axvline(x=median_playtime, color="gray", linestyle="--", alpha=0.7)
 
-
-# 2. Datenpunkte plotten
 for category, color in colors.items():
     category_data = filtered_games[filtered_games["retention_category"] == category]
     plt.scatter(
@@ -76,7 +93,19 @@ for category, color in colors.items():
         linewidth=0.5,
     )
 
-plt.xlabel("Durchschnittliche Spielzeit (Stunden)")
+# Beschriftung der Punkte mit >150h
+for _, row in high_playtime.iterrows():
+    plt.text(
+        row["avg_playtime"],
+        row["retention_rate"] + 1,  # leicht über dem Punkt
+        row["game"],
+        fontsize=8,
+        ha="left",
+        va="bottom",
+        color="black",
+    )
+
+plt.xlabel("Durchschnittliche Spielzeit (Minuten)")
 plt.ylabel("Retention Rate (%)")
 plt.title(
     "Spiele-Performance: Die 4 Erfolgs-Quadranten", fontsize=14, fontweight="bold"
@@ -99,7 +128,9 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 
-# Zusätzliche Analyse der Quadranten
+# =========================
+# Quadrantenanalyse
+# =========================
 filtered_games["quadrant"] = np.where(
     (filtered_games["retention_rate"] >= median_retention)
     & (filtered_games["avg_playtime"] >= median_playtime),
@@ -118,4 +149,9 @@ filtered_games["quadrant"] = np.where(
 )
 
 print("\n=== Verteilung der Spiele auf die 4 Quadranten ===")
-quadrant_summary = filtered_games.groupby("quadrant").agg
+quadrant_summary = (
+    filtered_games.groupby("quadrant")
+    .size()
+    .reindex(["Oben Rechts", "Oben Links", "Unten Rechts", "Unten Links"], fill_value=0)
+)
+print(quadrant_summary)
