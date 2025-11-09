@@ -13,7 +13,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-grenze_hours_played = 100
+grenze_hours_played = 10
+min_entries_per_game = 150  # Mindestanzahl an Einträgen pro Spiel für die Analyse
 
 # ------------------------------------------------------------
 # 1) Daten laden
@@ -35,6 +36,13 @@ df = df.dropna(subset=["hours"])
 
 # Genau 3 Stunden ausschließen, weil "länger als 3h" und "kürzer als 3h" streng gemeint ist
 df = df[df["hours"] != grenze_hours_played]
+
+# ------------------------------------------------------------
+# 2b) Nur Spiele mit ausreichender Mindestanzahl an Einträgen berücksichtigen
+# ------------------------------------------------------------
+game_counts = df["game"].value_counts()
+valid_games = game_counts[game_counts >= min_entries_per_game].index
+df = df[df["game"].isin(valid_games)]
 
 # Bucket bilden: <3h vs. >3h
 df["time_bucket"] = np.where(
