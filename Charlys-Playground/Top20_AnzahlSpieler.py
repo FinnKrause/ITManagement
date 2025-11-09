@@ -41,3 +41,8 @@ plt.xlabel("Spiel")
 plt.xticks(rotation=75, ha="right")
 plt.tight_layout()
 plt.show()
+
+"""
+Ergebnis: Nach Reichweite kann man sehen, dass Dota2 das beliebtetse Spiel ist
+(hat mit Abstand am meisten Spieler in unserem Datensatz)
+ """

@@ -73,3 +73,8 @@ plt.xlabel("Spiel")
 plt.xticks(rotation=75, ha="right")
 plt.tight_layout()
 plt.show()
+
+
+"""
+Ergebnis: nur leichte Abweichung zur AnzahlSpieler Tabelle -> macht nicht so viel Sinn
+"""

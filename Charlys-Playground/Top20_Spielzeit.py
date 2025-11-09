@@ -55,3 +55,8 @@ plt.xlabel("Spielzeit in Stunden")
 plt.title("Boxplots der Spielzeiten (Top 20 Spiele)")
 plt.tight_layout()
 plt.show()
+
+"""
+Ergebnis: Im Boxplot sieht man das Counter-Strike O... 
+insgesamt von 75% der Spieler am längsten gespielt wird
+"""

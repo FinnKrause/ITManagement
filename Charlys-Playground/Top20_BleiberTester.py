@@ -11,6 +11,8 @@ Was zeigt das Diagramm?
 wird der Anteil der Spieler dargestellt, die länger als 3 Stunden spielen („Bleiber“)
 und die das Spiel nur "Testen" (<=3h)
 - Die Balken zeigen relativen Anteil der Bleiber und Tester pro Spiel
+
+Wichtig: Wir gehen davon aus, dass unsere Daten die Allgemeinheit wiederspiegeln
 """
 
 import pandas as pd
