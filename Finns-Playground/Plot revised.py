@@ -21,8 +21,6 @@ min_entries_per_game = 150  # Mindestanzahl an Einträgen pro Spiel für die Ana
 # ------------------------------------------------------------
 csv_path = "steam-200k.csv"
 
-# Das Steam-200k-Dataset liegt häufig ohne Header vor. Wir vergeben daher Spaltennamen.
-# Falls Ihre Datei Header enthält, können Sie 'header=0' setzen und die 'names'-Zeile entfernen.
 cols = ["user_id", "game", "action", "hours", "extra"]
 df = pd.read_csv(csv_path, header=None, names=cols)
 
@@ -30,12 +28,8 @@ df = pd.read_csv(csv_path, header=None, names=cols)
 # 2) Vorbereiten / Filtern (nur "play"-Einträge, Stunden als float)
 # ------------------------------------------------------------
 df = df[df["action"] == "play"].copy()
-
 df["hours"] = pd.to_numeric(df["hours"], errors="coerce")
 df = df.dropna(subset=["hours"])
-
-# Genau 3 Stunden ausschließen, weil "länger als 3h" und "kürzer als 3h" streng gemeint ist
-df = df[df["hours"] != grenze_hours_played]
 
 # ------------------------------------------------------------
 # 2b) Nur Spiele mit ausreichender Mindestanzahl an Einträgen berücksichtigen
@@ -44,34 +38,31 @@ game_counts = df["game"].value_counts()
 valid_games = game_counts[game_counts >= min_entries_per_game].index
 df = df[df["game"].isin(valid_games)]
 
-# Bucket bilden: <3h vs. >3h
+# Bucket bilden: <grenze vs. >=grenze
 df["time_bucket"] = np.where(
-    df["hours"] > grenze_hours_played,
-    f">{grenze_hours_played}h",
+    df["hours"] >= grenze_hours_played,
+    f">={grenze_hours_played}h",
     f"<{grenze_hours_played}h",
 )
 
 # ------------------------------------------------------------
 # 3) Absolute Häufigkeiten je Spiel und Bucket aggregieren
 # ------------------------------------------------------------
-# "Einträge" = Zeilenanzahl (keine deduplizierten User). Falls einzigartige Spieler gewünscht sind,
-# könnte man z.B. per .nunique() auf user_id aggregieren.
 abs_counts = (
     df.groupby(["game", "time_bucket"])
     .size()
     .unstack(fill_value=0)
     .sort_values(
-        by=[f">{grenze_hours_played}h", f"<{grenze_hours_played}h"], ascending=False
+        by=[f">={grenze_hours_played}h", f"<{grenze_hours_played}h"],
+        ascending=False,
     )
 )
 
-# Optional: sicherstellen, dass beide Spalten existieren
-for col in [f">{grenze_hours_played}h", f"<{grenze_hours_played}h"]:
+for col in [f">={grenze_hours_played}h", f"<{grenze_hours_played}h"]:
     if col not in abs_counts.columns:
         abs_counts[col] = 0
-abs_counts = abs_counts[[f">{grenze_hours_played}h", f"<{grenze_hours_played}h"]]
+abs_counts = abs_counts[[f">={grenze_hours_played}h", f"<{grenze_hours_played}h"]]
 
-# Dies ist der geforderte DataFrame mit absoluten Häufigkeiten:
 abs_counts_df = abs_counts.copy()
 
 # ------------------------------------------------------------
@@ -81,31 +72,44 @@ row_sums = abs_counts_df.sum(axis=1).replace(0, np.nan)
 rel_freq = abs_counts_df.div(row_sums, axis=0).fillna(0).head(20)
 
 # ------------------------------------------------------------
-# 5) Plot: relative Häufigkeitsverteilung (alle unique Spielnamen)
+# 5) Plot: relative Häufigkeitsverteilung
 # ------------------------------------------------------------
-# Für viele Spiele ist ein horizontaler, gestapelter Balkenplot oft lesbarer.
 num_games = rel_freq.shape[0]
-fig_height = max(6, min(0.12 * num_games, 60))  # Limit auf sinnvolle Höhe
+fig_height = max(6, min(0.12 * num_games, 60))  # sinnvolle Höhe
 
-plt.figure(figsize=(12, fig_height))
-rel_freq.sort_values(
-    by=[f">{grenze_hours_played}h", f"<{grenze_hours_played}h"], ascending=False
-)[[f">{grenze_hours_played}h", f"<{grenze_hours_played}h"]].plot(
-    kind="barh", stacked=True, width=0.9, legend=True
+cols = [f">={grenze_hours_played}h", f"<{grenze_hours_played}h"]
+rel_sorted = rel_freq.sort_values(by=cols, ascending=False)
+totals = abs_counts_df.reindex(rel_sorted.index).sum(axis=1).astype(int)
+
+fig, ax = plt.subplots(figsize=(12, fig_height))
+
+rel_sorted[cols].plot(
+    kind="barh",
+    stacked=True,
+    width=0.9,
+    legend=True,
+    color=["#004A9F", "#C50F3C"],
+    ax=ax,
 )
 
-plt.xlabel("Relative Häufigkeit")
-plt.ylabel("Spiel")
-plt.title(
-    f"Relative Häufigkeitsverteilung der Spielzeiten pro Spiel\n(Buckets: <{grenze_hours_played}h vs. >{grenze_hours_played}h)"
-)
-plt.gca().invert_yaxis()  # Größte oben
-plt.legend(title="Zeit-Bucket", loc="lower right")
+ax.set_xlabel("Relative Häufigkeit")
+ax.set_ylabel("Spiel")
+ax.invert_yaxis()
+ax.legend(title="Zeit-Bucket", loc="lower left")
+
+# --- Beschriftung: rechts außerhalb der Balken ---
+# Wir erweitern die x-Achse leicht (z. B. auf 1.15 statt 1.0)
+ax.set_xlim(0, 1.15)
+
+y_positions = np.arange(len(rel_sorted.index))
+for y, n in zip(y_positions, totals):
+    ax.text(1.02, y, f"n={n}", va="center", ha="left")
+
 plt.tight_layout()
 plt.show()
 
 # ------------------------------------------------------------
-# 6) (Optional) Die beiden DataFrames zur weiteren Verwendung bereitstellen:
+# 6) (Optional) DataFrames für weitere Verwendung
+# ------------------------------------------------------------
 # - abs_counts_df: absolute Häufigkeiten
 # - rel_freq:      relative Häufigkeiten
-# ------------------------------------------------------------
