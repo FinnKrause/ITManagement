@@ -34,9 +34,9 @@ print(top20)
 # 6) Plot
 # -----------------------------
 plt.figure(figsize=(12, 8))
-top20.plot(kind="bar", color="skyblue", edgecolor="black")
-plt.title("Top 30 Spiele nach Anzahl Spieler")
-plt.ylabel("Anzahl eindeutiger Spieler")
+top20.plot(kind="bar", color="#004A9F")
+# plt.title("Top 20 Spiele nach Anzahl Spieler")
+plt.ylabel("Anzahl Spieler")
 plt.xlabel("Spiel")
 plt.xticks(rotation=75, ha="right")
 plt.tight_layout()
